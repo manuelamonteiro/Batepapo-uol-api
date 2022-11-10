@@ -7,8 +7,9 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+dotenv.config();
 
-const mongoClient = new MongoClient("mongodb://localhost:27017");
+const mongoClient = new MongoClient(process.env.MONGO_URI);
 
 let db;
 
@@ -17,9 +18,9 @@ mongoClient.connect().then(() => {
 }).catch((error) => console.log(error));
 
 app.post("/participants", async (req, res) => {
-    const {name} = req.body;
+    const { name } = req.body;
 
-    try{
+    try {
         await db.collection("participants").insert({
             name: name,
             lastStatus: Date.now()
@@ -44,7 +45,7 @@ app.get("/participants", async (req, res) => {
 
 app.post("/messages", async (req, res) => {
     const { user } = req.headers;
-    const {to, text, type} = req.body;
+    const { to, text, type } = req.body;
 
     try {
         await db.collection("messages").insert({
