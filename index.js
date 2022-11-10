@@ -11,17 +11,22 @@ dotenv.config();
 
 const mongoClient = new MongoClient(process.env.MONGO_URI);
 
-let db;
+try{
+    await mongoClient.connect();
+    console.log("MongoDB connect!");
+} catch (error) {
+    console.log(error);
+}
 
-mongoClient.connect().then(() => {
-    db = mongoClient.db("batepapo-uol-api");
-}).catch((error) => console.log(error));
+const db = mongoClient.db("batepapo-uol-api");
+const collectionParticipants = db.collection("participants");
+const collectionMessages = db.collection("messages");
 
 app.post("/participants", async (req, res) => {
     const { name } = req.body;
 
     try {
-        await db.collection("participants").insert({
+        await collectionParticipants.insertOne({
             name: name,
             lastStatus: Date.now()
         });
@@ -35,7 +40,7 @@ app.post("/participants", async (req, res) => {
 app.get("/participants", async (req, res) => {
 
     try {
-        const participants = await db.collection("participants").find().toArray()
+        const participants = await collectionParticipants.find().toArray()
         res.send(participants);
     } catch (error) {
         res.status(500).send(error);
@@ -48,7 +53,7 @@ app.post("/messages", async (req, res) => {
     const { to, text, type } = req.body;
 
     try {
-        await db.collection("messages").insert({
+        await collectionMessages.insertOne({
             from: user,
             to: to,
             text: text,
@@ -67,7 +72,7 @@ app.get("/messages", async (req, res) => {
     const { user } = req.headers;
 
     try {
-        const messages = await db.collection("messages").find().toArray()
+        const messages = await collectionMessages.find().toArray()
         res.send(messages);
     } catch (error) {
         res.status(500).send(error);
