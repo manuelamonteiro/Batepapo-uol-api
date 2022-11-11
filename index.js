@@ -11,7 +11,7 @@ const messageSchema = joi.object({
     type: joi.string().required().valid("message", "private_message")
 });
 
-const statusSchema = joi. object({
+const statusSchema = joi.object({
     name: joi.string().required().min(1)
 })
 
@@ -35,17 +35,18 @@ const collectionParticipants = db.collection("participants");
 const collectionMessages = db.collection("messages");
 
 app.post("/participants", async (req, res) => {
+
     const { name } = req.body;
     const validationStatus = statusSchema.validate(req.body);
     const isUser = (await collectionParticipants.find().toArray()).find((p) => p.name === name);
 
-    if(validationStatus.error){
+    if (validationStatus.error) {
         const error = validationStatus.error.details.map((detail) => detail.message);
         res.status(422).send(error);
         return;
     }
 
-    if(isUser){
+    if (isUser) {
         res.status(409).send("O usuário já está sendo utilizado!");
         return;
     }
@@ -68,6 +69,7 @@ app.post("/participants", async (req, res) => {
     } catch (error) {
         res.status(500).send(error);
     }
+
 });
 
 app.get("/participants", async (req, res) => {
@@ -82,18 +84,19 @@ app.get("/participants", async (req, res) => {
 });
 
 app.post("/messages", async (req, res) => {
+
     const { user } = req.headers;
     const { to, text, type } = req.body;
     const validationMessage = messageSchema.validate(req.body);
     const isUser = (await collectionParticipants.find().toArray()).find((p) => p.name === user);
 
-    if(validationMessage.error){
+    if (validationMessage.error) {
         const error = validationMessage.error.details.map((detail) => detail.message);
         res.status(422).send(error);
         return;
     }
 
-    if(!isUser){
+    if (!isUser) {
         res.status(422).send("O usuário não existe!");
         return;
     }
@@ -117,24 +120,24 @@ app.get("/messages", async (req, res) => {
     const { limit } = req.query;
     const { user } = req.headers;
 
-    //to === user && type === private_message
-    //type === status
-    //type === message
-
-
     try {
         const messages = await collectionMessages.find().toArray();
 
+        const filtredMessages = messages.filter((message) => {
+            if ((message.type === "private_message" && (message.to === user || message.from === user)) || message.type === "status" || message.type === "message") {
+                return message;
+            }
+        });
+
         if (limit <= 0) {
-            res.send(messages);
-        }
+            res.send(filtredMessages);
+        };
 
         if (limit > 0) {
-            let lastsMessages = messages.slice(-limit);
+            const lastsMessages = filtredMessages.slice(-limit);
             res.send(lastsMessages);
             return;
-        }
-
+        };
     } catch (error) {
         res.status(500).send(error);
     };
