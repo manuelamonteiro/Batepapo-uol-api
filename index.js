@@ -1,9 +1,9 @@
 import express from "express";
 import cors from "cors";
-import { MongoClient } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 import dotenv from "dotenv";
 import dayjs from "dayjs";
-import joi from "joi";
+import joi, { date } from "joi";
 
 const messageSchema = joi.object({
     to: joi.string().required().min(1),
@@ -47,7 +47,7 @@ app.post("/participants", async (req, res) => {
     }
 
     if (isUser) {
-        res.status(409).send("O usuário já está sendo utilizado!");
+        res.status(409).send("O usuário não consta na lista de participantes!");
         return;
     }
 
@@ -144,10 +144,25 @@ app.get("/messages", async (req, res) => {
 
 });
 
-app.post("/status", (req, res) => {
+app.post("/status", async (req, res) => {
     const { user } = req.headers;
+    const isUser = (await collectionParticipants.find().toArray()).find((p) => p.name === user);
+    const idUser = isUser._id;
 
-    res.status(200).send("Status do participante atualizado!");
+    if (!isUser) {
+        res.status(404).send("O usuário não existe!");
+        return;
+    };
+
+    try {
+        await collectionParticipants.updateOne({ _id: idUser },
+            { $set: { lastStatus: Date.Now() } });
+
+        res.status(200).send("Status do participante atualizado!");
+    } catch (error) {
+        res.status(500).send(error);
+    }
+
 });
 
 app.listen(process.env.PORT, () => {
