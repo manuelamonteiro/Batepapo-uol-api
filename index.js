@@ -3,6 +3,17 @@ import cors from "cors";
 import { MongoClient } from "mongodb";
 import dotenv from "dotenv";
 import dayjs from "dayjs";
+import joi from "joi";
+
+const messageSchema = joi.object({
+    to: joi.string().required().min(1),
+    text: joi.string().required().min(1),
+    type: joi.string().required().valid("message", "private_message")
+});
+
+const statusSchema = joi. object({
+    name: joi.string().required().min(1)
+})
 
 const app = express();
 
@@ -25,6 +36,19 @@ const collectionMessages = db.collection("messages");
 
 app.post("/participants", async (req, res) => {
     const { name } = req.body;
+    const validationStatus = statusSchema.validate(req.body);
+    const isUser = (await collectionParticipants.find().toArray()).find((p) => p.name === name);
+
+    if(validationStatus.error){
+        const error = validationStatus.error.details.map((detail) => detail.message);
+        res.status(422).send(error);
+        return;
+    }
+
+    if(isUser){
+        res.status(409).send("O usuário já está sendo utilizado!");
+        return;
+    }
 
     try {
         await collectionParticipants.insertOne({
@@ -35,14 +59,13 @@ app.post("/participants", async (req, res) => {
         await collectionMessages.insertOne({
             from: name,
             to: "Todos",
-            text: "status",
-            type: "entra na sala...",
+            text: "entra na sala...",
+            type: "status",
             time: dayjs().format("HH:MM:SS")
         });
 
         res.status(201).send("Participante criado com sucesso!");
     } catch (error) {
-        console.log(error)
         res.status(500).send(error);
     }
 });
@@ -61,6 +84,19 @@ app.get("/participants", async (req, res) => {
 app.post("/messages", async (req, res) => {
     const { user } = req.headers;
     const { to, text, type } = req.body;
+    const validationMessage = messageSchema.validate(req.body);
+    const isUser = (await collectionParticipants.find().toArray()).find((p) => p.name === user);
+
+    if(validationMessage.error){
+        const error = validationMessage.error.details.map((detail) => detail.message);
+        res.status(422).send(error);
+        return;
+    }
+
+    if(!isUser){
+        res.status(422).send("O usuário não existe!");
+        return;
+    }
 
     try {
         await collectionMessages.insertOne({
@@ -72,7 +108,6 @@ app.post("/messages", async (req, res) => {
         });
         res.status(201).send("Mensagem enviada com sucesso!");
     } catch (error) {
-        console.log(error)
         res.status(500).send(error);
     };
 
@@ -81,6 +116,11 @@ app.post("/messages", async (req, res) => {
 app.get("/messages", async (req, res) => {
     const { limit } = req.query;
     const { user } = req.headers;
+
+    //to === user && type === private_message
+    //type === status
+    //type === message
+
 
     try {
         const messages = await collectionMessages.find().toArray();
