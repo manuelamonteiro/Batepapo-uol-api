@@ -3,7 +3,7 @@ import cors from "cors";
 import { MongoClient, ObjectId } from "mongodb";
 import dotenv from "dotenv";
 import dayjs from "dayjs";
-import joi, { date } from "joi";
+import joi from "joi";
 
 const messageSchema = joi.object({
     to: joi.string().required().min(1),
@@ -44,12 +44,12 @@ app.post("/participants", async (req, res) => {
         const error = validationStatus.error.details.map((detail) => detail.message);
         res.status(422).send(error);
         return;
-    }
+    };
 
     if (isUser) {
-        res.status(409).send("O usuário não consta na lista de participantes!");
+        res.status(409).send({ message: "O usuário consta na lista de participantes!" });
         return;
-    }
+    };
 
     try {
         await collectionParticipants.insertOne({
@@ -62,10 +62,10 @@ app.post("/participants", async (req, res) => {
             to: "Todos",
             text: "entra na sala...",
             type: "status",
-            time: dayjs().format("HH:MM:SS")
+            time: dayjs().format("HH:mm:ss")
         });
 
-        res.status(201).send("Participante criado com sucesso!");
+        res.status(201).send({ message: "Participante criado com sucesso!" });
     } catch (error) {
         res.status(500).send(error);
     }
@@ -75,7 +75,7 @@ app.post("/participants", async (req, res) => {
 app.get("/participants", async (req, res) => {
 
     try {
-        const participants = await collectionParticipants.find().toArray()
+        const participants = await collectionParticipants.find().toArray();
         res.send(participants);
     } catch (error) {
         res.status(500).send(error);
@@ -94,12 +94,20 @@ app.post("/messages", async (req, res) => {
         const error = validationMessage.error.details.map((detail) => detail.message);
         res.status(422).send(error);
         return;
-    }
+    };
+
+    if (type === "message" && to !== "Todos") {
+        res.status(400).send({ message: "Envie como mensagem privada!" });
+    };
+
+    if (type === "private_message" && to === "Todos") {
+        res.status(400).send({ message: "Envie uma mensagem pública!" });
+    };
 
     if (!isUser) {
-        res.status(422).send("O usuário não existe!");
+        res.status(422).send({ message: "O usuário não existe!" });
         return;
-    }
+    };
 
     try {
         await collectionMessages.insertOne({
@@ -107,9 +115,9 @@ app.post("/messages", async (req, res) => {
             to: to,
             text: text,
             type: type,
-            time: dayjs().format("HH:MM:SS")
+            time: dayjs().format("HH:mm:ss")
         });
-        res.status(201).send("Mensagem enviada com sucesso!");
+        res.status(201).send({ message: "Mensagem enviada com sucesso!" });
     } catch (error) {
         res.status(500).send(error);
     };
@@ -117,6 +125,7 @@ app.post("/messages", async (req, res) => {
 });
 
 app.get("/messages", async (req, res) => {
+
     const { limit } = req.query;
     const { user } = req.headers;
 
@@ -124,12 +133,14 @@ app.get("/messages", async (req, res) => {
         const messages = await collectionMessages.find().toArray();
 
         const filtredMessages = messages.filter((message) => {
-            if ((message.type === "private_message" && (message.to === user || message.from === user)) || message.type === "status" || message.type === "message") {
+            if (message.type === "status" ||
+                message.type === "message" ||
+                (message.type === "private_message" && (message.to === user || message.from === user))) {
                 return message;
             }
         });
 
-        if (limit <= 0) {
+        if (limit === undefined) {
             res.send(filtredMessages);
         };
 
@@ -145,33 +156,66 @@ app.get("/messages", async (req, res) => {
 });
 
 app.post("/status", async (req, res) => {
+
     const { user } = req.headers;
     const isUser = (await collectionParticipants.find().toArray()).find((p) => p.name === user);
     const idUser = isUser._id;
 
     if (!isUser) {
-        res.status(404).send("O usuário não existe!");
+        res.status(404).send({ message: "O usuário não existe!" });
         return;
     };
 
     try {
         await collectionParticipants.updateOne({ _id: idUser },
-            { $set: { lastStatus: Date.Now() } });
+            { $set: { lastStatus: Date.now() } });
 
-        res.status(200).send("Status do participante atualizado!");
+        res.status(200).send({ message: "Status do participante atualizado!" });
     } catch (error) {
         res.status(500).send(error);
-    }
+    };
 
 });
+// 	const from = req.headers.user;
 
-function inactiveUsers(){
-    const participants = collectionParticipants.find().toArray();
+// 	try {
+// 		const findParticipant = await collectionParticipants.findOne({ name: from });
+// 		if (!findParticipant) {
+// 			return res.status(404).send("Participante não existe");
+// 		}
 
-    participants.map((participant) => {if(Date.now() - participant.lastStatus() > 10000){
+// 		await collectionParticipants.updateOne({ name: from }, { $set: { lastStatus: Date.now() } });
 
-    }})
-}
+// 		res.sendStatus(200);
+// 	} catch (err) {
+// 		console.log(err);
+// 		res.sendStatus(500);
+// 	}
+// });
+
+async function inactiveUsers() {
+
+    const participants = await collectionParticipants.find().toArray();
+
+    participants.filter((participant) => (Date.now() - Number(participant.lastStatus) > 10000))
+        .map(async (participant) => {
+            try {
+                await collectionParticipants.deleteOne(participant);
+
+                await collectionMessages.insertOne({
+                    from: participant.name,
+                    to: "Todos",
+                    text: "sai da sala...",
+                    type: "status",
+                    time: dayjs().format("HH:mm:ss")
+                });
+            } catch (error) {
+                res.status(500).send(error);
+            };
+        });
+};
+
+setInterval(inactiveUsers, 15000);
 
 app.listen(process.env.PORT, () => {
     console.log(`Server running in port: ${process.env.PORT}`);
