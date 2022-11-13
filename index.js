@@ -165,6 +165,14 @@ app.post("/status", async (req, res) => {
 
 });
 
+function inactiveUsers(){
+    const participants = collectionParticipants.find().toArray();
+
+    participants.map((participant) => {if(Date.now() - participant.lastStatus() > 10000){
+
+    }})
+}
+
 app.listen(process.env.PORT, () => {
     console.log(`Server running in port: ${process.env.PORT}`);
 });
