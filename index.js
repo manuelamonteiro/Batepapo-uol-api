@@ -196,7 +196,7 @@ async function inactiveUsers() {
                     time: dayjs().format("HH:mm:ss")
                 });
             } catch (error) {
-                res.status(500).send(error);
+                console.log(error);
             };
         });
 };
