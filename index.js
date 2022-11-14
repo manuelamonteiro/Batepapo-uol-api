@@ -98,10 +98,12 @@ app.post("/messages", async (req, res) => {
 
     if (type === "message" && to !== "Todos") {
         res.status(400).send({ message: "Envie como mensagem privada!" });
+        return;
     };
 
     if (type === "private_message" && to === "Todos") {
         res.status(400).send({ message: "Envie uma mensagem pública!" });
+        return;
     };
 
     if (!isUser) {
@@ -176,22 +178,6 @@ app.post("/status", async (req, res) => {
     };
 
 });
-// 	const from = req.headers.user;
-
-// 	try {
-// 		const findParticipant = await collectionParticipants.findOne({ name: from });
-// 		if (!findParticipant) {
-// 			return res.status(404).send("Participante não existe");
-// 		}
-
-// 		await collectionParticipants.updateOne({ name: from }, { $set: { lastStatus: Date.now() } });
-
-// 		res.sendStatus(200);
-// 	} catch (err) {
-// 		console.log(err);
-// 		res.sendStatus(500);
-// 	}
-// });
 
 async function inactiveUsers() {
 
