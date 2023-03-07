@@ -78,7 +78,7 @@ app.get("/participants", async (req, res) => {
     try {
         const participants = await collectionParticipants.find().toArray();
 
-        if(!participants){
+        if (!participants) {
             return res.sendStatus(404);
         }
 
@@ -168,15 +168,16 @@ app.get("/messages", async (req, res) => {
 app.post("/status", async (req, res) => {
 
     const { user } = req.headers;
-    const isUser = (await collectionParticipants.find().toArray()).find((p) => p.name === user);
-    const idUser = isUser._id;
-
-    if (!isUser) {
-        res.status(404).send({ message: "O usuário não existe!" });
-        return;
-    };
 
     try {
+        const isUser = (await collectionParticipants.find().toArray()).find((p) => p.name === user);
+        const idUser = isUser._id;
+
+        if (!isUser) {
+            res.status(404).send({ message: "O usuário não existe!" });
+            return;
+        };
+
         await collectionParticipants.updateOne({ _id: idUser },
             { $set: { lastStatus: Date.now() } });
 
