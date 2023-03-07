@@ -81,7 +81,7 @@ app.get("/participants", async (req, res) => {
         if(!participants){
             return res.sendStatus(404);
         }
-        
+
         res.send(participants);
     } catch (error) {
         res.status(500).send(error);
@@ -94,7 +94,6 @@ app.post("/messages", async (req, res) => {
     const { user } = req.headers;
     const { to, text, type } = req.body;
     const validationMessage = messageSchema.validate(req.body);
-    const isUser = (await collectionParticipants.find().toArray()).find((p) => p.name === user);
 
     if (validationMessage.error) {
         const error = validationMessage.error.details.map((detail) => detail.message);
@@ -112,12 +111,14 @@ app.post("/messages", async (req, res) => {
         return;
     };
 
-    if (!isUser) {
-        res.status(422).send({ message: "O usuário não existe!" });
-        return;
-    };
-
     try {
+        const isUser = (await collectionParticipants.find().toArray()).find((p) => p.name === user);
+
+        if (!isUser) {
+            res.status(422).send({ message: "O usuário não existe!" });
+            return;
+        };
+
         await collectionMessages.insertOne({
             from: user,
             to: to,
@@ -125,6 +126,7 @@ app.post("/messages", async (req, res) => {
             type: type,
             time: dayjs().format("HH:mm:ss")
         });
+
         res.status(201).send({ message: "Mensagem enviada com sucesso!" });
     } catch (error) {
         res.status(500).send(error);
@@ -134,7 +136,7 @@ app.post("/messages", async (req, res) => {
 
 app.get("/messages", async (req, res) => {
 
-    const { limit } = req.query;
+    const { limit } = Number(req.query);
     const { user } = req.headers;
 
     try {
