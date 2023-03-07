@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import { MongoClient, ObjectId } from "mongodb";
+import { MongoClient } from "mongodb";
 import dotenv from "dotenv";
 import dayjs from "dayjs";
 import joi from "joi";
@@ -38,7 +38,6 @@ app.post("/participants", async (req, res) => {
 
     const { name } = req.body;
     const validationStatus = statusSchema.validate(req.body);
-    const isUser = (await collectionParticipants.find().toArray()).find((p) => p.name === name);
 
     if (validationStatus.error) {
         const error = validationStatus.error.details.map((detail) => detail.message);
@@ -46,12 +45,14 @@ app.post("/participants", async (req, res) => {
         return;
     };
 
-    if (isUser) {
-        res.status(409).send({ message: "O usuário consta na lista de participantes!" });
-        return;
-    };
-
     try {
+        const isUser = (await collectionParticipants.find().toArray()).find((p) => p.name === name);
+
+        if (isUser) {
+            res.status(409).send({ message: "O usuário consta na lista de participantes!" });
+            return;
+        };
+
         await collectionParticipants.insertOne({
             name: name,
             lastStatus: Date.now()
@@ -76,6 +77,11 @@ app.get("/participants", async (req, res) => {
 
     try {
         const participants = await collectionParticipants.find().toArray();
+
+        if(!participants){
+            return res.sendStatus(404);
+        }
+        
         res.send(participants);
     } catch (error) {
         res.status(500).send(error);
